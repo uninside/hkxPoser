@@ -6,31 +6,44 @@ namespace hkxPoser
 {
     static class Program
     {
+        
+
         /// <summary>
         /// アプリケーションのメイン エントリ ポイントです。
         /// </summary>
         [STAThread]
-        static void Main()
+        static void Main(string[] args)
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
+            
+
             Settings settings = Settings.Load(Path.Combine(Application.StartupPath, @"config.xml"));
-            //settings.Dump();
 
-            Form1 form1 = new Form1(settings);
-            Form2 form2 = new Form2();
+            string loadfilePath = "";
+            if (args.Length != 0)
+                loadfilePath = args[0];
 
-            form2.TopLevel = false;
-            form2.Location = new System.Drawing.Point(0, 26);
-            form1.Controls.Add(form2);
-            form2.BringToFront();
-            form2.viewer = form1.viewer;
+            
+            if(settings.SingleLaunch) {
+                string mtxName = Application.ProductName;
 
-            form1.Show();
-            form2.Show();
+            }
 
-            Application.Run(form1);
+            MainWindow mainWindow = new MainWindow(settings, loadfilePath);
+            BoneController boneController = new BoneController();
+
+            boneController.TopLevel = false;
+            boneController.Location = new System.Drawing.Point(0, 26);
+            mainWindow.Controls.Add(boneController);
+            boneController.BringToFront();
+            boneController.viewer = mainWindow._viewer;
+
+            mainWindow.Show();
+            boneController.Show();
+
+            Application.Run(mainWindow);
         }
     }
 }

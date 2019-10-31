@@ -1,6 +1,6 @@
 ﻿namespace hkxPoser
 {
-    partial class Form2
+    partial class BoneController
     {
         /// <summary>
         /// 必要なデザイナ変数です。

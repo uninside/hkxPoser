@@ -26,6 +26,37 @@ namespace hkxPoser
         Renderer3d renderer3d;
         Renderer2d renderer2d;
 
+        public bool BoneViewing { get; set; }
+        public CommandManager command_man { get; }
+        BoneCommand bone_command = null;
+
+        Viewport viewport;
+
+        Matrix view;
+        Matrix proj;
+        Matrix wvp;
+        Matrix world_to_screen;
+
+        hkaSkeleton skeleton;
+        hkaAnimation anim;
+
+        string anim_filename = "idle.hkx";
+        hkaBone selected_bone = null;
+
+
+        public event EventHandler LoadAnimationEvent;
+        public Viewer(Settings settings)
+        {
+            renderer3d = new Renderer3d();
+            renderer3d.ScreenColor = settings.ScreenColor;
+
+            renderer2d = new Renderer2d();
+
+            BoneViewing = true;
+
+            command_man = new CommandManager();
+        }
+
         /// <summary>
         /// マウスポイントしているスクリーン座標
         /// </summary>
@@ -56,10 +87,10 @@ namespace hkxPoser
                 case MouseButtons.Left:
                     camera.Move(dx * 0.01f, -dy * 0.01f);
                     break;
-                case MouseButtons.Middle:
+                case MouseButtons.Right:
                     camera.MoveView(-dx * 0.3125f, dy * 0.3125f, 0.0f);
                     break;
-                case MouseButtons.Right:
+                case MouseButtons.Middle:
                     camera.MoveView(0.0f, 0.0f, -dy * 0.3125f);
                     break;
             }
@@ -72,6 +103,15 @@ namespace hkxPoser
         {
             control.MouseDown += new MouseEventHandler(form_OnMouseDown);
             control.MouseMove += new MouseEventHandler(form_OnMouseMove);
+            control.MouseWheel += new MouseEventHandler(form_OnMouseWheel);
+        }
+
+        protected void form_OnMouseWheel(object sender, MouseEventArgs e)
+        {
+
+            int dy = e.Delta * SystemInformation.MouseWheelScrollLines / 20;
+
+            camera.MoveView(0.0f, 0.0f, -dy * 0.3125f);
         }
 
         public void DetachMouseEventHandler(Control control)
@@ -80,17 +120,7 @@ namespace hkxPoser
             control.MouseDown -= new MouseEventHandler(form_OnMouseDown);
         }
 
-        Viewport viewport;
 
-        Matrix view;
-        Matrix proj;
-        Matrix wvp;
-        Matrix world_to_screen;
-
-        hkaSkeleton skeleton;
-        hkaAnimation anim;
-
-        public event EventHandler LoadAnimationEvent;
 
         void CreateViewportAndProjection(ref System.Drawing.Size clientSize)
         {
@@ -106,6 +136,10 @@ namespace hkxPoser
 
         protected void form_Resize(object sender, EventArgs e)
         {
+            MainWindow mainWindow = sender as MainWindow;
+            if (mainWindow.WindowState == FormWindowState.Minimized)
+                return;
+
             System.Console.WriteLine("Viewer.form_Resize");
 
             renderer2d.DiscardDeviceResources();
@@ -137,7 +171,7 @@ namespace hkxPoser
             return desc;
         }
 
-        public bool InitializeGraphics(Control control)
+        public bool InitializeGraphics(Control control, string loadFilepath = "")
         {
             this.control = control;
 
@@ -170,6 +204,13 @@ namespace hkxPoser
             skeleton.Load(skel_file);
 
             string anim_file = Path.Combine(Application.StartupPath, @"resources\idle.bin");
+
+            if (loadFilepath.Length != 0 && File.Exists(loadFilepath) )
+            {
+                anim_file = loadFilepath;
+            }
+
+            
             anim = new hkaAnimation();
             if (anim.Load(anim_file))
             {
@@ -231,6 +272,24 @@ namespace hkxPoser
             return Path.Combine(Application.StartupPath, @"tmp\" + basename + ".bin");
         }
 
+        public int PreLoadAnimation(ref string  source_file)
+        {
+            string file = CreateTempFileName(source_file);
+
+            ProcessStartInfo info = new ProcessStartInfo(
+                    Path.Combine(Application.StartupPath, @"bin\hkdump-bin.exe"),
+                    EscapeFileName(source_file) + " -o " + EscapeFileName(file));
+            info.UseShellExecute = false;
+            info.RedirectStandardOutput = true;
+
+            Process process = Process.Start(info);
+            Console.WriteLine(process.StandardOutput.ReadToEnd());
+            process.WaitForExit();
+
+            source_file = file;
+            return process.ExitCode;
+        }
+
         public void LoadAnimation(string source_file)
         {
             string file = CreateTempFileName(source_file);
@@ -252,8 +311,6 @@ namespace hkxPoser
                 }
             }
         }
-
-        string anim_filename = "idle.hkx";
 
         void LoadAnimationSuccessful(string source_file)
         {
@@ -312,7 +369,11 @@ namespace hkxPoser
         {
             //TODO: create resources if discarded
             renderer3d.Render();
-            renderer2d.Render(swapChain, ref viewport, selected_bone, anim_filename);
+
+            if (BoneViewing)
+                renderer2d.Render(swapChain, ref viewport, selected_bone, anim_filename);
+            else
+                renderer2d.RenderNoBone(swapChain, ref viewport, selected_bone, anim_filename);
 
             swapChain.Present(0, PresentFlags.None);
         }
@@ -345,8 +406,6 @@ namespace hkxPoser
             Transform t = bone.GetWorldCoordinate();
             return WorldToScreen(t.translation);
         }
-
-        hkaBone selected_bone = null;
 
         /// boneを選択します。
         /// returns: boneを見つけたかどうか
@@ -393,18 +452,6 @@ namespace hkxPoser
             return found;
         }
 
-        public CommandManager command_man { get; }
-        BoneCommand bone_command = null;
-
-        public Viewer(Settings settings)
-        {
-            renderer3d = new Renderer3d();
-            renderer3d.ScreenColor = settings.ScreenColor;
-
-            renderer2d = new Renderer2d();
-
-            command_man = new CommandManager();
-        }
 
         /// bone操作を開始します。
         public void BeginBoneCommand()

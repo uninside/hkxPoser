@@ -117,6 +117,36 @@ namespace hkxPoser
             }
         }
 
+        public void RenderNoBone(SwapChain swapChain, ref Viewport viewport, hkaBone selected_bone, string anim_filename)
+        {
+            Size2 size = new Size2(viewport.Width, viewport.Height);
+
+            CreateDeviceResources(swapChain);
+
+            renderTarget.BeginDraw();
+
+            DrawCenterAxis();
+
+            //DrawBoneTree();
+            DrawSelectedBone(selected_bone);
+
+            DrawText(anim_filename, ref size);
+
+            try
+            {
+                renderTarget.EndDraw();
+            }
+            catch (SharpDXException ex) when ((uint)ex.HResult == 0x8899000C) // D2DERR_RECREATE_TARGET
+            {
+                // device has been lost!
+                DiscardDeviceResources();
+            }
+        }
+
+
+
+
+
         void DrawText(string anim_filename, ref Size2 size)
         {
             renderTarget.DrawText(string.Format("File: {0}", anim_filename), textFormat, new RectangleF(12, size.Height-12-45-20, size.Width-24, 20), textBrush);

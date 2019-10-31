@@ -9,11 +9,11 @@ using System.Windows.Forms;
 
 namespace hkxPoser
 {
-    public partial class Form2 : Form
+    public partial class BoneController : Form
     {
         internal Viewer viewer = null;
         
-        public Form2()
+        public BoneController()
         {
             InitializeComponent();
         }
